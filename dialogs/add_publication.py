@@ -219,4 +219,119 @@ class AddPublicationDialog(QDialog):
         """)
         cancel_btn.clicked.connect(self.reject)
 
-        save_btn = QPushButton
+        save_btn = QPushButton("Update Publication" if self.is_edit_mode else "Save Publication")
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                padding: 8px 18px; 
+                background-color: #0b2545; 
+                color: white; 
+                border-radius: 4px; 
+                border: none;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #134e75;
+            }
+        """)
+        save_btn.clicked.connect(self.handle_save)
+
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(save_btn)
+        layout.addLayout(btn_layout)
+
+    def load_clients(self):
+        raw_clients = get_clients_for_combo()
+        self.clients_list = [
+            c for c in raw_clients 
+            if str(c.get("status", "Active")).lower() != "inactive"
+        ]
+        
+        self.client_combo.clear()
+        self.client_combo.addItem("Select client", None)
+        
+        for c in self.clients_list:
+            self.client_combo.addItem(c["client_name"], c["client_id"])
+
+    def handle_save(self):
+        if self.client_combo.currentIndex() <= 0 or self.client_combo.currentData() is None:
+            QMessageBox.warning(self, "Input Error", "Please select a valid client.")
+            return
+
+        client_id = self.client_combo.currentData()
+        case_no = self.case_input.text().strip()
+        pub_type = self.type_combo.currentText()
+        date_rec = self.date_input.date().toString("yyyy-MM-dd")
+        req_issues = self.issues_spin.value()
+        details = self.details_input.toPlainText().strip()
+        notes = self.notes_input.toPlainText().strip()
+
+        if not case_no:
+            QMessageBox.warning(self, "Input Error", "Case number is required.")
+            return
+
+        if not re.match(r'^[a-zA-Z0-9\.\-\_\,\s]+$', case_no):
+            QMessageBox.warning(
+                self, 
+                "Invalid Input", 
+                "Case Number can only contain letters, numbers, spaces, and the following special characters: . - _ ,"
+            )
+            return
+
+        if pub_type == "Select type" or not pub_type:
+            QMessageBox.warning(self, "Input Error", "Please select a valid publication type.")
+            return
+
+        # Duplicate case number check
+        conn = get_connection()
+        if not conn:
+            QMessageBox.critical(self, "Database Error", "Failed to connect to the database.")
+            return
+
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            if self.is_edit_mode:
+                pub_id = self.pub_data.get("publication_id")
+                dup_query = """
+                    SELECT COUNT(*) as cnt FROM publication 
+                    WHERE LOWER(case_number) = LOWER(%s) AND publication_id != %s
+                """
+                cursor.execute(dup_query, (case_no, pub_id))
+            else:
+                dup_query = """
+                    SELECT COUNT(*) as cnt FROM publication 
+                    WHERE LOWER(case_number) = LOWER(%s)
+                """
+                cursor.execute(dup_query, (case_no,))
+            
+            result = cursor.fetchone()
+            count = int(list(result.values())[0]) if isinstance(result, dict) else int(result[0])
+
+            if count > 0:
+                QMessageBox.warning(
+                    self, 
+                    "Duplicate Case Number", 
+                    "A publication with this case number already exists."
+                )
+                return
+        except Exception as e:
+            QMessageBox.critical(self, "Database Error", f"Error verifying case number: {e}")
+            return
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.open:
+                conn.close()
+
+        if self.is_edit_mode:
+            pub_id = self.pub_data.get("publication_id")
+            status = self.status_combo.currentText()
+            success = update_publication_in_db(pub_id, client_id, case_no, pub_type, date_rec, req_issues, details, notes, status)
+        else:
+            success = add_publication_to_db(client_id, case_no, pub_type, date_rec, req_issues, details, notes, "In Progress")
+
+        if success:
+            self.accept()
+        else:
+            QMessageBox.critical(self, "Database Error", "Failed to save publication details.")
