@@ -1,0 +1,7 @@
+venv/
+dist/
+build/
+__pycache__/
+generated_documents/
+.vscode/
+local_config.py
