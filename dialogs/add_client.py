@@ -1,4 +1,5 @@
 # Path: dialogs/add_client.py
+import re
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QComboBox, QPushButton, QMessageBox, QScrollArea, QWidget
@@ -62,13 +63,13 @@ class AddClientDialog(QDialog):
 
         layout.addWidget(create_label("Client Name", required=True))
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Enter full name")
+        self.name_input.setPlaceholderText("Enter full name (letters only)")
         self.name_input.setStyleSheet(input_style)
         layout.addWidget(self.name_input)
 
         layout.addWidget(create_label("Contact Number", required=True))
         self.contact_input = QLineEdit()
-        self.contact_input.setPlaceholderText("Enter contact number")
+        self.contact_input.setPlaceholderText("Enter contact number (numbers only)")
         self.contact_input.setStyleSheet(input_style)
         layout.addWidget(self.contact_input)
 
@@ -138,19 +139,28 @@ class AddClientDialog(QDialog):
         status = self.status_combo.currentText()
 
         if not name or not contact:
-            QMessageBox.warning(self, "Validation Error", "Client Name and Contact Number are required fields.")
+            QMessageBox.warning(self, "Validation Error", "Client Name and Contact Number are required fields[cite: 8].")
+            return
+
+        # Validate that client name does not contain numbers
+        if any(char.isdigit() for char in name):
+            QMessageBox.warning(self, "Invalid Input", "Client Name cannot contain numbers.")
+            return
+
+        # Validate that contact number contains only digits (plus optional symbols like +, -, spaces)
+        if not re.match(r'^[0-9\+\-\s]+$', contact):
+            QMessageBox.warning(self, "Invalid Input", "Contact Number must contain only numbers and valid phone characters.")
             return
 
         conn = get_connection()
         if not conn:
-            QMessageBox.critical(self, "Database Error", "Failed to connect to the database.")
+            QMessageBox.critical(self, "Database Error", "Failed to connect to the database[cite: 8].")
             return
 
         cursor = None
         try:
             cursor = conn.cursor()
             
-            # Check for duplicate client (case-insensitive name or matching contact)
             if self.is_edit_mode:
                 client_id = self.client_data.get("client_id")
                 dup_query = """
@@ -178,7 +188,7 @@ class AddClientDialog(QDialog):
                 QMessageBox.warning(
                     self, 
                     "Duplicate Client", 
-                    "Duplicate client! A client with this name or contact number already exists."
+                    "Duplicate client! A client with this name or contact number already exists[cite: 8]."
                 )
                 return
 

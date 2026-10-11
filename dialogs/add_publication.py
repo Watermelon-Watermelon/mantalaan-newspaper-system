@@ -1,4 +1,5 @@
 # Path: dialogs/add_publication.py
+import re
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QTextEdit, QComboBox, QPushButton, QMessageBox, QDateEdit, QSpinBox
@@ -108,7 +109,7 @@ class AddPublicationDialog(QDialog):
 
         left_col.addWidget(QLabel("Case Number *"))
         self.case_input = QLineEdit()
-        self.case_input.setPlaceholderText("Enter case number")
+        self.case_input.setPlaceholderText("Enter case number (letters, numbers, . - _ ,)")
         self.case_input.setStyleSheet(input_style)
         left_col.addWidget(self.case_input)
 
@@ -243,7 +244,6 @@ class AddPublicationDialog(QDialog):
 
     def load_clients(self):
         raw_clients = get_clients_for_combo()
-        # Filter out inactive clients so they cannot be selected for publications
         self.clients_list = [
             c for c in raw_clients 
             if str(c.get("status", "Active")).lower() != "inactive"
@@ -260,7 +260,7 @@ class AddPublicationDialog(QDialog):
     
     def handle_save(self):
         if self.client_combo.currentIndex() <= 0 or self.client_combo.currentData() is None:
-            QMessageBox.warning(self, "Input Error", "Please select a valid client.")
+            QMessageBox.warning(self, "Input Error", "Please select a valid client[cite: 9].")
             return
 
         client_id = self.client_combo.currentData()
@@ -272,11 +272,20 @@ class AddPublicationDialog(QDialog):
         notes = self.notes_input.toPlainText().strip()
 
         if not case_no:
-            QMessageBox.warning(self, "Input Error", "Case number is required.")
+            QMessageBox.warning(self, "Input Error", "Case number is required[cite: 9].")
+            return
+
+        # Validate case number allows only alphanumeric characters and specific symbols (. - _ ,)
+        if not re.match(r'^[a-zA-Z0-9\.\-\_\,\s]+$', case_no):
+            QMessageBox.warning(
+                self, 
+                "Invalid Input", 
+                "Case Number can only contain letters, numbers, spaces, and the following special characters: . - _ ,"
+            )
             return
 
         if pub_type == "Select type" or not pub_type:
-            QMessageBox.warning(self, "Input Error", "Please select a valid publication type.")
+            QMessageBox.warning(self, "Input Error", "Please select a valid publication type[cite: 9].")
             return
 
         if self.is_edit_mode:
@@ -289,4 +298,4 @@ class AddPublicationDialog(QDialog):
         if success:
             self.accept()
         else:
-            QMessageBox.critical(self, "Database Error", "Failed to save publication details.")
+            QMessageBox.critical(self, "Database Error", "Failed to save publication details[cite: 9].")
