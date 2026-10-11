@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QFont
 
-from db import get_clients_for_combo, add_publication_to_db, update_publication_in_db
+from db import get_clients_for_combo, add_publication_to_db, update_publication_in_db, get_connection
 
 class AddPublicationDialog(QDialog):
     def __init__(self, parent=None, pub_data=None):
@@ -219,83 +219,4 @@ class AddPublicationDialog(QDialog):
         """)
         cancel_btn.clicked.connect(self.reject)
 
-        save_btn = QPushButton("Update Publication" if self.is_edit_mode else "Save Publication")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                padding: 8px 18px; 
-                background-color: #0b2545; 
-                color: white; 
-                border-radius: 4px; 
-                border: none;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #134e75;
-            }
-        """)
-        save_btn.clicked.connect(self.handle_save)
-
-        btn_layout.addWidget(cancel_btn)
-        btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
-
-        self.client_combo.currentIndexChanged.connect(self.on_client_changed)
-
-    def load_clients(self):
-        raw_clients = get_clients_for_combo()
-        self.clients_list = [
-            c for c in raw_clients 
-            if str(c.get("status", "Active")).lower() != "inactive"
-        ]
-        
-        self.client_combo.clear()
-        self.client_combo.addItem("Select client", None)
-        
-        for c in self.clients_list:
-            self.client_combo.addItem(c["client_name"], c["client_id"])
-
-    def on_client_changed(self, index):
-        pass
-    
-    def handle_save(self):
-        if self.client_combo.currentIndex() <= 0 or self.client_combo.currentData() is None:
-            QMessageBox.warning(self, "Input Error", "Please select a valid client[cite: 9].")
-            return
-
-        client_id = self.client_combo.currentData()
-        case_no = self.case_input.text().strip()
-        pub_type = self.type_combo.currentText()
-        date_rec = self.date_input.date().toString("yyyy-MM-dd")
-        req_issues = self.issues_spin.value()
-        details = self.details_input.toPlainText().strip()
-        notes = self.notes_input.toPlainText().strip()
-
-        if not case_no:
-            QMessageBox.warning(self, "Input Error", "Case number is required[cite: 9].")
-            return
-
-        # Validate case number allows only alphanumeric characters and specific symbols (. - _ ,)
-        if not re.match(r'^[a-zA-Z0-9\.\-\_\,\s]+$', case_no):
-            QMessageBox.warning(
-                self, 
-                "Invalid Input", 
-                "Case Number can only contain letters, numbers, spaces, and the following special characters: . - _ ,"
-            )
-            return
-
-        if pub_type == "Select type" or not pub_type:
-            QMessageBox.warning(self, "Input Error", "Please select a valid publication type[cite: 9].")
-            return
-
-        if self.is_edit_mode:
-            pub_id = self.pub_data.get("publication_id")
-            status = self.status_combo.currentText()
-            success = update_publication_in_db(pub_id, client_id, case_no, pub_type, date_rec, req_issues, details, notes, status)
-        else:
-            success = add_publication_to_db(client_id, case_no, pub_type, date_rec, req_issues, details, notes, "In Progress")
-
-        if success:
-            self.accept()
-        else:
-            QMessageBox.critical(self, "Database Error", "Failed to save publication details[cite: 9].")
+        save_btn = QPushButton
